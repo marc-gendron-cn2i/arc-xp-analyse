@@ -31,9 +31,7 @@ export default async function handler(req, res) {
   // 5. Appeler l’API Draft Arc XP pour récupérer le contenu
   let draftJson = null;
   const draftUrlsToTry = [
-    // production
-    `https://api.lescoopsdelinformation.arcpublishing.com/draft/v1/story/${arcIdentifier}/revision/draft`,
-    // sandbox (adaptez selon votre instance sandbox si nécessaire)
+   // sandbox (adaptez selon votre instance sandbox si nécessaire)
     `https://api.sandbox.lescoopsdelinformation.arcpublishing.com/draft/v1/story/${arcIdentifier}/revision/draft` 
   ];
 
