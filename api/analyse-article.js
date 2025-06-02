@@ -32,9 +32,9 @@ export default async function handler(req, res) {
   let draftJson = null;
   const draftUrlsToTry = [
     // production
-    `https://draft-api-client-org.arcxp.com/drafts/${arcIdentifier}`,
+    `https://api.lescoopsdelinformation.arcpublishing.com/draft/v1/story/${arcIdentifier}/revision/draft`,
     // sandbox (adaptez selon votre instance sandbox si nécessaire)
-    `https://draft-api-client-org-sandbox.arcxp.com/drafts/${arcIdentifier}`
+    `https://api.sandbox.lescoopsdelinformation.arcpublishing.com/draft/v1/story/${arcIdentifier}/revision/draft` 
   ];
 
   for (const url of draftUrlsToTry) {
