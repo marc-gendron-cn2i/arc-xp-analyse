@@ -71,3 +71,67 @@ export default async function handler(req, res) {
           {
             role: "user",
             content: `
+Voici le JSON ANS du draft Arc XP :
+${JSON.stringify(draftJson)}
+
+Tu es un expert en journalisme, SEO et UX. Garde en tête :
+
+1. Génère “user_needs” (chaîne).
+2. “user_needs_scores” (tableau Markdown ou chaîne).
+3. “score_explanation” (chaîne).
+4. “improvement_suggestions” (array de chaînes).
+5. “user_needs_tags” (array d’objets: {description, slug, text}).
+6. “user_needs_json” (même structure).
+7. “relevant_tags” (array d’objets).
+8. “iab_categories” (array de chaînes).
+9. “arc_xp_label” (objet: {label:{iab_taxonomy:{display:true,text:"…"}}}).
+10. “iab_taxonomy_text” (chaîne).
+11. “seo_keywords” (array de chaînes).
+12. “seo_title” (chaîne).
+13. “seo_title_explanation” (chaîne).
+14. “viafoura” ({viafoura_question:"…", viafoura_answers:["…","…"]}).
+15. “headlines_ab” ({A:"…",B:"…",C:"…"}).
+
+Retourne **uniquement** un JSON strictement structuré ainsi :
+{
+  "user_needs": "...",
+  "user_needs_scores": "...",
+  "score_explanation": "...",
+  "improvement_suggestions": [...],
+  "user_needs_tags": [...],
+  "user_needs_json": [...],
+  "relevant_tags": [...],
+  "iab_categories": [...],
+  "arc_xp_label": { ... },
+  "iab_taxonomy_text": "...",
+  "seo_keywords": [...],
+  "seo_title": "...",
+  "seo_title_explanation": "...",
+  "viafoura": { "viafoura_question":"...", "viafoura_answers":["...", "..."] },
+  "headlines_ab": { "A":"...", "B":"...", "C":"..." }
+}
+`
+          }
+        ],
+        max_tokens: 1500
+      })
+    });
+    if (!openaiResp.ok) {
+      const errText = await openaiResp.text();
+      return res
+        .status(openaiResp.status)
+        .json({ error: "Erreur OpenAI API", details: errText });
+    }
+    const openaiJson = await openaiResp.json();
+    const content = openaiJson.choices[0].message.content.trim();
+    analysis = JSON.parse(content);
+  } catch (e) {
+    return res.status(500).json({ error: "Erreur OpenAI ou JSON invalide", details: e.message });
+  }
+
+  // 7. Envoyer la réponse complète d’analyse au front
+  return res.status(200).json({
+    status: "success",
+    analysis
+  });
+}
