@@ -3,7 +3,7 @@
 // Vercel fournit un runtime Node.js où `fetch` fonctionne nativement.
 export default async function handler(req, res) {
   // 1. Autoriser CORS vers votre front-end GitHub Pages
-  res.setHeader("Access-Control-Allow-Origin", "https://<votre-pseudo>.github.io");
+  res.setHeader("Access-Control-Allow-Origin", "https://marc-gendron-cn2i.github.io");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
 
@@ -29,29 +29,68 @@ export default async function handler(req, res) {
   }
 
   // 5. Appeler l’API Draft Arc XP pour récupérer le contenu
-  let draftJson;
-  try {
-    const draftResp = await fetch(
-      `https://api.sandbox.lescoopsdelinformation.arcpublishing.com/draft/v1/story/${arcIdentifier}/revision/draft`,
-      {
+  let draftJson = null;
+  const draftUrlsToTry = [
+    // production
+    `https://draft-api-client-org.arcxp.com/drafts/${arcIdentifier}`,
+    // sandbox (adaptez selon votre instance sandbox si nécessaire)
+    `https://draft-api-client-org-sandbox.arcxp.com/drafts/${arcIdentifier}`
+  ];
+
+  for (const url of draftUrlsToTry) {
+    try {
+      const draftResp = await fetch(url, {
         headers: {
           Authorization: `Bearer ${process.env.ARC_ACCESS_TOKEN}`,
           Accept: "application/vnd.automate-content+json; charset=utf-8"
         }
+      });
+      if (draftResp.ok) {
+        draftJson = await draftResp.json();
+        break;
       }
-    );
-    if (!draftResp.ok) {
-      const errText = await draftResp.text();
-      return res
-        .status(draftResp.status)
-        .json({ error: "Erreur Draft API", details: errText });
+      // Si c’est un 404, on essaie l’URL suivante
+      if (draftResp.status !== 404) {
+        const errText = await draftResp.text();
+        return res
+          .status(draftResp.status)
+          .json({ error: "Erreur Draft API", details: errText });
+      }
+    } catch (e) {
+      // En cas d’erreur réseau, on sort directement
+      return res.status(500).json({ error: "Erreur fetch Draft API", details: e.message });
     }
-    draftJson = await draftResp.json();
-  } catch (e) {
-    return res.status(500).json({ error: "Erreur fetch Draft API", details: e.message });
   }
 
-  // 6. Interroger OpenAI pour générer l’analyse
+  // 6. Si pas de draft trouvé, basculer sur la Content API (article déjà publié)
+  let payloadToOpenAI = null;
+  if (draftJson) {
+    payloadToOpenAI = draftJson;
+  } else {
+    try {
+      const contentResp = await fetch(
+        `https://content-api-client-org.arcxp.com/content/v4/stories/${arcIdentifier}`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.ARC_ACCESS_TOKEN}`,
+            Accept: "application/json"
+          }
+        }
+      );
+      if (!contentResp.ok) {
+        const errText = await contentResp.text();
+        return res
+          .status(contentResp.status)
+          .json({ error: "Erreur Content API", details: errText });
+      }
+      const contentJson = await contentResp.json();
+      payloadToOpenAI = contentJson.story || contentJson;
+    } catch (e) {
+      return res.status(500).json({ error: "Échec Content API", details: e.message });
+    }
+  }
+
+  // 7. Interroger OpenAI pour générer l’analyse
   let analysis;
   try {
     const openaiResp = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -71,8 +110,8 @@ export default async function handler(req, res) {
           {
             role: "user",
             content: `
-Voici le JSON ANS du draft Arc XP :
-${JSON.stringify(draftJson)}
+Voici le JSON ANS de l’article (draft ou publié) :
+${JSON.stringify(payloadToOpenAI)}
 
 Tu es un expert en journalisme, SEO et UX. Garde en tête :
 
@@ -129,7 +168,7 @@ Retourne **uniquement** un JSON strictement structuré ainsi :
     return res.status(500).json({ error: "Erreur OpenAI ou JSON invalide", details: e.message });
   }
 
-  // 7. Envoyer la réponse complète d’analyse au front
+  // 8. Envoyer la réponse finale au front
   return res.status(200).json({
     status: "success",
     analysis
