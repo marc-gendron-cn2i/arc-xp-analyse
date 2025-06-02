@@ -32,7 +32,7 @@ export default async function handler(req, res) {
   let draftJson;
   try {
     const draftResp = await fetch(
-      `https://api.sandbox.lescoopsdelinformation.arcpublishing.com/draft/v1/${arcIdentifier}`,
+      `https://api.sandbox.lescoopsdelinformation.arcpublishing.com/draft/v1/story/${arcIdentifier}/revision/draft`,
       {
         headers: {
           Authorization: `Bearer ${process.env.ARC_ACCESS_TOKEN}`,
