@@ -32,7 +32,7 @@ export default async function handler(req, res) {
   let draftJson = null;
   const draftUrlsToTry = [
    // pour tester en sandbox, modifier l'URL de cette façon: https://api.sandbox.lescoopsdelinformation.arcpublishing.com/draft/v1/story/${arcIdentifier}/revision/draft
-    `https://api.lescoopsdelinformation.arcpublishing.com/draft/v1/story/${arcIdentifier}/revision/draft` 
+    `https://api.sandbox.lescoopsdelinformation.arcpublishing.com/draft/v1/story/${arcIdentifier}/revision/draft` 
   ];
 
   for (const url of draftUrlsToTry) {
