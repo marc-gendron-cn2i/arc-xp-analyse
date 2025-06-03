@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Analyse d’article Arc XP</title>
+  <style>
+    body {
+      font-family: 'Red Hat Display', sans-serif;
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 1rem;
+      background: #f8f8f8;
+    }
+    h1 {
+      color: #d51D2C;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .btn-primary {
+      background-color: #d51D2C;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 0.5rem;
+    }
+    .btn-primary:hover {
+      background-color: #b21a24;
+    }
+    .hidden {
+      display: none;
+    }
+    #loader {
+      margin-top: 1rem;
+      font-style: italic;
+      color: #555;
+    }
+    #resultContainer {
+      margin-top: 2rem;
+    }
+    .section {
+      border: 1px solid #ddd;
+      background: #fff;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 1.5rem;
+    }
+    .section h3 {
+      margin-top: 0;
+      color: #d51D2C;
+    }
+    .section ul,
+    .section ol {
+      padding-left: 1.2rem;
+    }
+    .section pre {
+      background: #f0f0f0;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    @media (max-width: 600px) {
+      body {
+        padding: 0.5rem;
+      }
+      .btn-primary {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Analyse d’article Arc XP</h1>
+
+  <div class="form-group">
+    <label for="arcInput">ID ou URL d’article :</label>
+    <input type="text" id="arcInput" placeholder="Entrez l’ID (26 caractères) ou l’URL complète" />
+  </div>
+  <button id="analyzeBtn" class="btn-primary">Lancer l’analyse</button>
+
+  <div id="loader" class="hidden">Analyse en cours…</div>
+  <div id="resultContainer"></div>
+
+  <script>
+    // Remplacez par l’URL Vercel de votre API serverless
+    const ENDPOINT_SERV = "https://arc-xp-analyse.vercel.app/api/analyse-article";
+
+    document.getElementById("analyzeBtn").addEventListener("click", async () => {
+      let inputValue = document.getElementById("arcInput").value.trim();
+      if (!inputValue) {
+        alert("Veuillez saisir un ID ou une URL valide.");
+        return;
+      }
+      // Extraire l’ID de 26 caractères si c’est une URL
+      const match = inputValue.match(/([A-Za-z0-9]{26})/);
+      if (match) {
+        inputValue = match[1];
+      } else {
+        alert("Impossible d'extraire un ID de 26 caractères depuis l'entrée.");
+        return;
+      }
+
+      // Afficher le loader et vider le conteneur
+      document.getElementById("loader").classList.remove("hidden");
+      document.getElementById("resultContainer").innerHTML = "";
+
+      try {
+        const resp = await fetch(ENDPOINT_SERV, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ arcIdentifier: inputValue })
+        });
+        document.getElementById("loader").classList.add("hidden");
+
+        if (!resp.ok) {
+          const txt = await resp.text();
+          document.getElementById("resultContainer").innerHTML =
+            `<p style="color:red">Erreur serveur (${resp.status}) : ${txt}</p>`;
+          return;
+        }
+        const result = await resp.json();
+        if (result.status === "success" && result.analysis) {
+          renderAnalysis(result.analysis);
+        } else {
+          document.getElementById("resultContainer").innerHTML =
+            `<p style="color:red">Erreur : ${result.error || "données manquantes"}</p>`;
+        }
+      } catch (err) {
+        document.getElementById("loader").classList.add("hidden");
+        document.getElementById("resultContainer").innerHTML =
+          `<p style="color:red">Erreur réseau : ${err.message}</p>`;
+      }
+    });
+
+    function renderAnalysis(analysis) {
+      const resultContainer = document.getElementById("resultContainer");
+      resultContainer.innerHTML = "";
+
+      // 1. Besoins des utilisateurs
+      const sectionUserNeeds = document.createElement("div");
+      sectionUserNeeds.className = "section";
+      sectionUserNeeds.innerHTML = `
+        <h3>Besoins des utilisateurs</h3>
+        <p id="userNeeds">${analysis.user_needs || ""}</p>
+      `;
+      resultContainer.appendChild(sectionUserNeeds);
+
+      // 2. Scores pour chaque besoin
+      const sectionScores = document.createElement("div");
+      sectionScores.className = "section";
+      sectionScores.innerHTML = `
+        <h3>Scores pour chaque besoin</h3>
+        <pre id="userNeedsScores">${analysis.user_needs_scores || ""}</pre>
+      `;
+      resultContainer.appendChild(sectionScores);
+
+      // 3. Explication du score
+      const sectionScoreExp = document.createElement("div");
+      sectionScoreExp.className = "section";
+      sectionScoreExp.innerHTML = `
+        <h3>Explication du score</h3>
+        <p id="scoreExplanation">${analysis.score_explanation || ""}</p>
+      `;
+      resultContainer.appendChild(sectionScoreExp);
+
+      // 4. Besoins comblés
+      const sectionFulfilled = document.createElement("div");
+      sectionFulfilled.className = "section";
+      sectionFulfilled.innerHTML = `
+        <h3>Besoins comblés</h3>
+        <ul id="fulfilledNeeds"></ul>
+      `;
+      resultContainer.appendChild(sectionFulfilled);
+      const fulfilledList = document.getElementById("fulfilledNeeds");
+      (analysis.user_needs_tags || []).forEach(tagObj => {
+        const li = document.createElement("li");
+        li.textContent = tagObj.text;
+        fulfilledList.appendChild(li);
+      });
+
+      // 5. Améliorations suggérées
+      const sectionImprovements = document.createElement("div");
+      sectionImprovements.className = "section";
+      sectionImprovements.innerHTML = `
+        <h3>Améliorations suggérées</h3>
+        <ul id="improvementSuggestions"></ul>
+      `;
+      resultContainer.appendChild(sectionImprovements);
+      const impList = document.getElementById("improvementSuggestions");
+      (analysis.improvement_suggestions || []).forEach(sugg => {
+        const li = document.createElement("li");
+        li.textContent = sugg;
+        impList.appendChild(li);
+      });
+
+      // 6. Besoins des utilisateurs ajoutés à l'article (Balises)
+      const sectionAddedNeeds = document.createElement("div");
+      sectionAddedNeeds.className = "section";
+      sectionAddedNeeds.innerHTML = `
+        <h3>Besoins des utilisateurs ajoutés à l'article (Balises)</h3>
+        <pre id="userNeedsJson">${JSON.stringify(analysis.user_needs_json || [], null, 2)}</pre>
+      `;
+      resultContainer.appendChild(sectionAddedNeeds);
+
+      // 7. Balises pertinentes
+      const sectionRelevantTags = document.createElement("div");
+      sectionRelevantTags.className = "section";
+      sectionRelevantTags.innerHTML = `
+        <h3>Balises pertinentes</h3>
+        <ul id="relevantTags"></ul>
+      `;
+      resultContainer.appendChild(sectionRelevantTags);
+      const relevantList = document.getElementById("relevantTags");
+      (analysis.relevant_tags || []).forEach(tagObj => {
+        const li = document.createElement("li");
+        li.textContent = tagObj.text;
+        relevantList.appendChild(li);
+      });
+
+      // 8. Catégories IAB (À titre informatif)
+      const sectionIAB = document.createElement("div");
+      sectionIAB.className = "section";
+      sectionIAB.innerHTML = `
+        <h3>Catégories IAB (À titre informatif)</h3>
+        <p id="iabCategories">${(analysis.iab_categories || []).join(", ")}</p>
+      `;
+      resultContainer.appendChild(sectionIAB);
+
+      // 9. Mots-Clés SEO
+      const sectionSeoKeys = document.createElement("div");
+      sectionSeoKeys.className = "section";
+      sectionSeoKeys.innerHTML = `
+        <h3>Mots-Clés SEO</h3>
+        <ul id="seoKeywords"></ul>
+      `;
+      resultContainer.appendChild(sectionSeoKeys);
+      const seoList = document.getElementById("seoKeywords");
+      (analysis.seo_keywords || []).forEach(kw => {
+        const li = document.createElement("li");
+        li.textContent = kw;
+        seoList.appendChild(li);
+      });
+
+      // 10. Suggestion de titre SEO
+      const sectionSeoTitle = document.createElement("div");
+      sectionSeoTitle.className = "section";
+      sectionSeoTitle.innerHTML = `
+        <h3>Suggestion de titre SEO</h3>
+        <p id="seoTitle">${analysis.seo_title || ""}</p>
+      `;
+      resultContainer.appendChild(sectionSeoTitle);
+
+      // 11. Suggestion de question Viafoura
+      const sectionViafoura = document.createElement("div");
+      sectionViafoura.className = "section";
+      sectionViafoura.innerHTML = `
+        <h3>Suggestion de question Viafoura</h3>
+        <p id="viafouraQuestion">${(analysis.viafoura || {}).viafoura_question || ""}</p>
+        <ol id="viafouraAnswers"></ol>
+      `;
+      resultContainer.appendChild(sectionViafoura);
+      const answersList = document.getElementById("viafouraAnswers");
+      ((analysis.viafoura || {}).viafoura_answers || []).forEach(ans => {
+        const li = document.createElement("li");
+        li.textContent = ans;
+        answersList.appendChild(li);
+      });
+
+      // 12. A/B test de titres
+      const sectionHeadlines = document.createElement("div");
+      sectionHeadlines.className = "section";
+      sectionHeadlines.innerHTML = `
+        <h3>A/B test de titres</h3>
+        <p><strong>Version A :</strong> <span id="headlineA"></span></p>
+        <p><strong>Version B :</strong> <span id="headlineB"></span></p>
+        <p><strong>Version C :</strong> <span id="headlineC"></span></p>
+      `;
+      resultContainer.appendChild(sectionHeadlines);
+      document.getElementById("headlineA").textContent = (analysis.headlines_ab || {}).A || "";
+      document.getElementById("headlineB").textContent = (analysis.headlines_ab || {}).B || "";
+      document.getElementById("headlineC").textContent = (analysis.headlines_ab || {}).C || "";
+    }
+  </script>
+</body>
+</html>
